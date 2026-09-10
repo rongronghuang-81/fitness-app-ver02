@@ -321,9 +321,17 @@ export async function completeClass(
   await requireUser()
   const supabase = await createClient()
 
+  // Re-running the completion flow (to add a late note, say) must not move the
+  // recorded completion time — §44 depends on those timestamps staying true.
+  const { data: current } = await supabase
+    .from('classes')
+    .select('completed_at')
+    .eq('id', classId)
+    .maybeSingle()
+
   const patch: { status: 'completed'; completed_at: string; general_notes?: string | null } = {
     status: 'completed',
-    completed_at: new Date().toISOString(),
+    completed_at: current?.completed_at ?? new Date().toISOString(),
   }
   if (generalNotes !== undefined) patch.general_notes = generalNotes
 

@@ -333,7 +333,7 @@ behaviour — form accessibility, empty states, the mobile bottom bar, and
 one-tap attendance.
 
 **`npm run test:sql`** spins up a throwaway PostgreSQL database, applies a small
-Supabase shim plus every migration, and runs 51 assertions:
+Supabase shim plus every migration, and runs 53 assertions:
 
 - cross-instructor isolation on select, insert, update and delete
 - anonymous access denied on tables and on private storage objects

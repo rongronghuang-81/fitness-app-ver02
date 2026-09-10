@@ -128,10 +128,22 @@ export async function updateClass(
   if (!parsed.success) return fieldErrors(parsed.error)
 
   const supabase = await createClient()
-  // The completed_at timestamp and the status must move together.
+
+  // The status and completed_at must move together (a database constraint
+  // enforces it), but an existing completion time must survive an edit —
+  // rewriting it would silently falsify when the class was actually taught.
+  const { data: current } = await supabase
+    .from('classes')
+    .select('completed_at')
+    .eq('id', classId)
+    .maybeSingle()
+
   const patch = {
     ...parsed.data,
-    completed_at: parsed.data.status === 'completed' ? new Date().toISOString() : null,
+    completed_at:
+      parsed.data.status === 'completed'
+        ? (current?.completed_at ?? new Date().toISOString())
+        : null,
   }
 
   const { error } = await supabase.from('classes').update(patch).eq('id', classId)
@@ -149,11 +161,20 @@ export async function setClassStatus(
 ): Promise<ActionState> {
   await requireUser()
   const supabase = await createClient()
+
+  // Keep the original completion time if the class was already completed.
+  const { data: current } = await supabase
+    .from('classes')
+    .select('completed_at')
+    .eq('id', classId)
+    .maybeSingle()
+
   const { error } = await supabase
     .from('classes')
     .update({
       status,
-      completed_at: status === 'completed' ? new Date().toISOString() : null,
+      completed_at:
+        status === 'completed' ? (current?.completed_at ?? new Date().toISOString()) : null,
     })
     .eq('id', classId)
 

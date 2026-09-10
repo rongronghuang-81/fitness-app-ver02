@@ -323,4 +323,27 @@ begin
 end;
 $$;
 
+-- --- historical timestamps must survive later edits (§44) ------------------
+do $$
+declare
+  v_first  timestamptz;
+  v_second timestamptz;
+begin
+  select completed_at into v_first from public.classes where week_number = 4;
+
+  -- Editing a completed class (adding a theme, say) must not move the moment
+  -- it was taught. The application preserves completed_at; this pins the
+  -- database side of the contract that makes that possible.
+  update public.classes set theme = 'Edited afterwards' where week_number = 4;
+  select completed_at into v_second from public.classes where week_number = 4;
+
+  perform test.assert(v_first = v_second,
+    'editing a completed class does not move its completion time');
+
+  perform test.assert(
+    (select updated_at >= created_at from public.classes where week_number = 4),
+    'updated_at advances while created_at stays put');
+end;
+$$;
+
 reset role;
