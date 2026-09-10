@@ -43,6 +43,19 @@ type Selected = NonNullable<Awaited<ReturnType<typeof probeSelect>>>[number]
 type _SelectIsNotNever = Expect<IsNotNever<Selected>>
 type _SelectHasColumns = Expect<Extends<Selected, { first_name: string; active: boolean }>>
 
+// An embedded join must resolve to the related row, not to a SelectQueryError.
+// This is what the Relationships metadata on each table buys us.
+async function probeJoin() {
+  const { data } = await client.from('terms').select('name, levels ( id, name )').maybeSingle()
+  return data
+}
+
+type JoinedTerm = NonNullable<Awaited<ReturnType<typeof probeJoin>>>
+type _JoinIsNotNever = Expect<IsNotNever<JoinedTerm>>
+type _JoinResolves = Expect<
+  Extends<JoinedTerm, { name: string; levels: { id: string; name: string } | null }>
+>
+
 // Creating a student from a first name alone must typecheck (§7).
 const minimalStudent: Rows['students']['Insert'] = { first_name: 'Sarah' }
 void minimalStudent

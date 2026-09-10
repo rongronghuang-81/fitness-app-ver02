@@ -281,12 +281,29 @@ export type SearchResult = {
   score: number | null
 }
 
-type Def<Row, RequiredInsert extends keyof Row = never> = {
+/**
+ * A foreign key, in the shape PostgREST's select parser needs to resolve an
+ * embedded join (`terms ( id, name )`). Without these the parser cannot tell
+ * how two tables relate and the whole query resolves to an error type.
+ *
+ * `isOneToOne: false` is correct for an ordinary many-to-one FK: embedding the
+ * parent from the child yields one object, embedding the child from the parent
+ * yields an array. That direction is inferred from which table declares the key.
+ */
+type FK<Column extends string, Referenced extends string> = {
+  foreignKeyName: string
+  columns: [Column]
+  isOneToOne: false
+  referencedRelation: Referenced
+  referencedColumns: ['id']
+}
+
+type Def<Row, RequiredInsert extends keyof Row = never, Rels extends unknown[] = []> = {
   Row: Row
   Insert: Partial<Omit<Row, 'id' | 'created_at' | 'updated_at' | 'owner_id'>> &
     Pick<Row, RequiredInsert> & { id?: string; owner_id?: string }
   Update: Partial<Row>
-  Relationships: []
+  Relationships: Rels
 }
 
 export type Database = {
@@ -296,25 +313,25 @@ export type Database = {
       levels: Def<Level, 'name'>
       categories: Def<Category, 'kind' | 'name'>
       skill_statuses: { Row: SkillStatus; Insert: SkillStatus; Update: Partial<SkillStatus>; Relationships: [] }
-      students: Def<Student, 'first_name'>
-      terms: Def<Term, 'name' | 'start_date' | 'weekday' | 'start_time' | 'number_of_weeks'>
-      term_students: Def<TermStudent, 'term_id' | 'student_id'>
-      classes: Def<ClassRow, 'term_id' | 'week_number' | 'scheduled_date' | 'start_time'>
-      class_students: Def<ClassStudent, 'class_id' | 'student_id'>
-      class_lessons: Def<ClassLesson, 'class_id' | 'kind'>
-      lesson_items: Def<LessonItem, 'lesson_id' | 'section'>
-      lesson_templates: Def<LessonTemplate, 'name'>
-      lesson_template_items: Def<LessonTemplateItem, 'template_id' | 'section'>
+      students: Def<Student, 'first_name', [FK<'current_level_id', 'levels'>]>
+      terms: Def<Term, 'name' | 'start_date' | 'weekday' | 'start_time' | 'number_of_weeks', [FK<'level_id', 'levels'>]>
+      term_students: Def<TermStudent, 'term_id' | 'student_id', [FK<'term_id', 'terms'>, FK<'student_id', 'students'>]>
+      classes: Def<ClassRow, 'term_id' | 'week_number' | 'scheduled_date' | 'start_time', [FK<'term_id', 'terms'>]>
+      class_students: Def<ClassStudent, 'class_id' | 'student_id', [FK<'class_id', 'classes'>, FK<'student_id', 'students'>]>
+      class_lessons: Def<ClassLesson, 'class_id' | 'kind', [FK<'class_id', 'classes'>]>
+      lesson_items: Def<LessonItem, 'lesson_id' | 'section', [FK<'lesson_id', 'class_lessons'>, FK<'trick_id', 'tricks'>, FK<'exercise_id', 'exercises'>]>
+      lesson_templates: Def<LessonTemplate, 'name', [FK<'level_id', 'levels'>]>
+      lesson_template_items: Def<LessonTemplateItem, 'template_id' | 'section', [FK<'template_id', 'lesson_templates'>, FK<'trick_id', 'tricks'>, FK<'exercise_id', 'exercises'>]>
       tricks: Def<Trick, 'name'>
-      trick_levels: Def<TrickLevel, 'trick_id' | 'level_id'>
-      trick_categories: Def<TrickCategory, 'trick_id' | 'category_id'>
-      trick_relationships: Def<TrickRelationship, 'from_trick_id' | 'to_trick_id' | 'relationship_type'>
-      exercises: Def<Exercise, 'name'>
-      exercise_categories: Def<ExerciseCategory, 'exercise_id' | 'category_id'>
-      trick_exercises: Def<TrickExercise, 'trick_id' | 'exercise_id'>
-      student_skill_progress: Def<StudentSkillProgress, 'student_id' | 'trick_id'>
-      milestones: Def<Milestone, 'student_id' | 'title'>
-      media: Def<Media, 'storage_path' | 'file_type' | 'mime_type' | 'file_size'>
+      trick_levels: Def<TrickLevel, 'trick_id' | 'level_id', [FK<'trick_id', 'tricks'>, FK<'level_id', 'levels'>]>
+      trick_categories: Def<TrickCategory, 'trick_id' | 'category_id', [FK<'trick_id', 'tricks'>, FK<'category_id', 'categories'>]>
+      trick_relationships: Def<TrickRelationship, 'from_trick_id' | 'to_trick_id' | 'relationship_type', [FK<'from_trick_id', 'tricks'>, FK<'to_trick_id', 'tricks'>]>
+      exercises: Def<Exercise, 'name', [FK<'level_id', 'levels'>]>
+      exercise_categories: Def<ExerciseCategory, 'exercise_id' | 'category_id', [FK<'exercise_id', 'exercises'>, FK<'category_id', 'categories'>]>
+      trick_exercises: Def<TrickExercise, 'trick_id' | 'exercise_id', [FK<'trick_id', 'tricks'>, FK<'exercise_id', 'exercises'>]>
+      student_skill_progress: Def<StudentSkillProgress, 'student_id' | 'trick_id', [FK<'student_id', 'students'>, FK<'trick_id', 'tricks'>]>
+      milestones: Def<Milestone, 'student_id' | 'title', [FK<'student_id', 'students'>, FK<'trick_id', 'tricks'>, FK<'class_id', 'classes'>]>
+      media: Def<Media, 'storage_path' | 'file_type' | 'mime_type' | 'file_size', [FK<'student_id', 'students'>, FK<'class_id', 'classes'>, FK<'trick_id', 'tricks'>, FK<'milestone_id', 'milestones'>]>
     }
     Views: {
       attendance: { Row: Pick<ClassStudent, 'id' | 'owner_id' | 'class_id' | 'student_id' | 'attendance_status' | 'attendance_marked_at' | 'updated_at'>; Relationships: [] }
