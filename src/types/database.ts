@@ -114,6 +114,8 @@ export type ClassStudent = Owned & Timestamps & {
   student_id: string
   attendance_status: AttendanceStatus
   attendance_marked_at: string | null
+  /** 'term' rows are managed by enrolment; 'manual' drop-ins are not. */
+  added_via: 'term' | 'manual'
   performance_notes: string | null
   achievements: string | null
   difficulties: string | null

@@ -320,7 +320,7 @@ All of this is tested — see below.
 ## Testing
 
 ```bash
-npm test              # unit + component tests (81 tests, no setup needed)
+npm test              # unit + component tests (92 tests, no setup needed)
 npm run test:sql      # migrations + RLS + workflow against real PostgreSQL
 npm run typecheck     # strict TypeScript, including database-type guards
 npm run lint
@@ -333,7 +333,7 @@ behaviour — form accessibility, empty states, the mobile bottom bar, and
 one-tap attendance.
 
 **`npm run test:sql`** spins up a throwaway PostgreSQL database, applies a small
-Supabase shim plus every migration, and runs 53 assertions:
+Supabase shim plus every migration, and runs 59 assertions:
 
 - cross-instructor isolation on select, insert, update and delete
 - anonymous access denied on tables and on private storage objects
@@ -348,6 +348,9 @@ Supabase shim plus every migration, and runs 53 assertions:
 - search finds students, tricks, exercises, terms and classes by partial text
 - archiving a student preserves their history; referenced library items cannot
   be hard-deleted
+- a drop-in added to one class survives later enrolment changes in that term
+- copying a lesson onto a non-empty plan appends in order instead of colliding
+- a completed class keeps its original completion time when edited later
 
 It needs PostgreSQL 15+ server binaries (`apt install postgresql-16`, or the
 Supabase CLI's bundled Postgres) but **no credentials and no Docker**.

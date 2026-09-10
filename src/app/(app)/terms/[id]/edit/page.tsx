@@ -28,7 +28,7 @@ export default async function EditTermPage({ params }: { params: Promise<{ id: s
     <>
       <PageHeader
         title={`Edit ${term.name}`}
-        description="Extending the term adds the new weeks. Classes already taught are never changed."
+        description="Moving the day or time moves the classes still sitting on that slot. Anything you rescheduled by hand, cancelled or already taught keeps its own date."
       />
       <TermForm
         term={term as Term}

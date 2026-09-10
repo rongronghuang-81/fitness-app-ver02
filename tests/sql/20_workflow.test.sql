@@ -323,6 +323,126 @@ begin
 end;
 $$;
 
+-- --- copying onto a non-empty plan appends rather than colliding ------------
+-- Regression: the copy reused the source's positions verbatim, so copying week
+-- N-1 onto a week that already had items produced duplicate positions and an
+-- arbitrary reading order.
+insert into public.class_lessons (class_id, kind)
+select id, 'planned' from public.classes where week_number = 5;
+
+insert into public.lesson_items (lesson_id, section, position, free_text)
+select l.id, 'warmup', 0, 'Already here'
+from public.class_lessons l
+join public.classes c on c.id = l.class_id
+where c.week_number = 5 and l.kind = 'planned';
+
+insert into public.lesson_items (lesson_id, section, position, free_text)
+select l.id, 'warmup', 0, 'Copied first'
+from public.class_lessons l
+join public.classes c on c.id = l.class_id
+where c.week_number = 4 and l.kind = 'planned';
+
+insert into public.lesson_items (lesson_id, section, position, free_text)
+select l.id, 'warmup', 1, 'Copied second'
+from public.class_lessons l
+join public.classes c on c.id = l.class_id
+where c.week_number = 4 and l.kind = 'planned';
+
+select public.copy_lesson_items(
+  (select l.id from public.class_lessons l
+     join public.classes c on c.id = l.class_id
+    where c.week_number = 4 and l.kind = 'planned'),
+  (select l.id from public.class_lessons l
+     join public.classes c on c.id = l.class_id
+    where c.week_number = 5 and l.kind = 'planned'),
+  array['warmup'], false);
+
+do $$
+declare
+  v_order text[];
+begin
+  select array_agg(i.free_text order by i.position)
+  into v_order
+  from public.lesson_items i
+  join public.class_lessons l on l.id = i.lesson_id
+  join public.classes c on c.id = l.class_id
+  where c.week_number = 5 and l.kind = 'planned' and i.section = 'warmup';
+
+  perform test.assert(
+    v_order = array['Already here', 'Copied first', 'Copied second'],
+    'copied items append after the existing plan, in their original order');
+
+  perform test.assert(
+    (select count(distinct position) = count(*)
+     from public.lesson_items i
+     join public.class_lessons l on l.id = i.lesson_id
+     join public.classes c on c.id = l.class_id
+     where c.week_number = 5 and l.kind = 'planned' and i.section = 'warmup'),
+    'positions within a section stay unique after a copy');
+end;
+$$;
+
+-- --- a drop-in must survive later enrolment changes --------------------------
+-- Regression: sync_term_roster used to delete every unmarked roster row whose
+-- student was not enrolled for the term, which silently removed a student the
+-- instructor had deliberately added to a single class.
+insert into public.students (first_name) values ('DropIn');
+
+insert into public.class_students (class_id, student_id)
+select c.id, s.id
+from public.classes c, public.students s
+where c.week_number = 5 and s.first_name = 'DropIn';
+
+do $$
+begin
+  perform test.assert(
+    (select added_via from public.class_students cs
+      join public.students s on s.id = cs.student_id
+     where s.first_name = 'DropIn') = 'manual',
+    'a student added straight to a class is recorded as a manual drop-in');
+end;
+$$;
+
+-- Enrolling somebody else fires the roster-sync trigger for the whole term.
+insert into public.term_students (term_id, student_id)
+select t.id, s.id from public.terms t, public.students s
+where s.first_name = 'DropIn' and t.name = 'Intermediate Pole'
+  and false; -- deliberately not enrolled: they are a drop-in, not a term student
+
+update public.term_students set status = 'enrolled'
+where student_id = (select id from public.students where first_name = 'Sarah');
+
+do $$
+begin
+  perform test.assert(
+    (select count(*) from public.class_students cs
+      join public.students s on s.id = cs.student_id
+     where s.first_name = 'DropIn') = 1,
+    'a drop-in survives an enrolment change elsewhere in the term');
+end;
+$$;
+
+-- Withdrawing a term student still cleans up their untaught classes.
+update public.term_students set status = 'withdrawn'
+where student_id = (select id from public.students where first_name = 'Michelle');
+
+do $$
+begin
+  perform test.assert(
+    (select count(*) from public.class_students cs
+      join public.students s on s.id = cs.student_id
+      join public.classes c on c.id = cs.class_id
+     where s.first_name = 'Michelle' and c.status <> 'completed') = 0,
+    'withdrawing a term student still clears their untaught classes');
+  perform test.assert(
+    (select count(*) from public.class_students cs
+      join public.students s on s.id = cs.student_id
+      join public.classes c on c.id = cs.class_id
+     where s.first_name = 'Michelle' and c.status = 'completed') > 0,
+    'withdrawing never touches classes the student actually attended');
+end;
+$$;
+
 -- --- historical timestamps must survive later edits (§44) ------------------
 do $$
 declare

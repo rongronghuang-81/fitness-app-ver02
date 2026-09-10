@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient, requireUser } from '@/lib/supabase/server'
 import { classSchema, termSchema } from '@/lib/validation/schemas'
+import { planTermReschedule, type WeekdayIndex } from '@/lib/domain/schedule'
 import { formToObject } from '@/lib/form-data'
 import { describeDbError, failure, fieldErrors, success, type ActionState } from '@/actions/types'
 
@@ -48,8 +49,63 @@ export async function updateTerm(
   if (!parsed.success) return fieldErrors(parsed.error)
 
   const supabase = await createClient()
+
+  // Read the old slot before overwriting it: moving a term has to move the
+  // classes that still sit on that slot, or the term would claim "Thursdays at
+  // 8pm" while every class stayed on Wednesday at 7.
+  const { data: before } = await supabase
+    .from('terms')
+    .select('start_date, weekday, start_time, duration_minutes')
+    .eq('id', termId)
+    .maybeSingle()
+
   const { error } = await supabase.from('terms').update(parsed.data).eq('id', termId)
   if (error) return failure(describeDbError(error))
+
+  let moved = 0
+  if (before) {
+    const { data: existing } = await supabase
+      .from('classes')
+      .select('id, week_number, scheduled_date, start_time, duration_minutes, status, completed_at')
+      .eq('term_id', termId)
+
+    const moves = planTermReschedule(
+      (existing ?? []).map((c) => ({
+        id: c.id,
+        weekNumber: c.week_number,
+        scheduledDate: c.scheduled_date,
+        startTime: c.start_time,
+        durationMinutes: c.duration_minutes,
+        status: c.status,
+        completedAt: c.completed_at,
+      })),
+      {
+        startDate: before.start_date,
+        weekday: before.weekday as WeekdayIndex,
+        startTime: before.start_time,
+        durationMinutes: before.duration_minutes,
+      },
+      {
+        startDate: parsed.data.start_date,
+        weekday: parsed.data.weekday as WeekdayIndex,
+        startTime: parsed.data.start_time,
+        durationMinutes: parsed.data.duration_minutes,
+      },
+    )
+
+    for (const move of moves) {
+      const { error: moveError } = await supabase
+        .from('classes')
+        .update({
+          scheduled_date: move.scheduledDate,
+          start_time: move.startTime,
+          duration_minutes: move.durationMinutes,
+        })
+        .eq('id', move.id)
+      if (moveError) return failure(describeDbError(moveError))
+    }
+    moved = moves.length
+  }
 
   // Adds any newly-added weeks without touching the classes already taught.
   const { error: genError } = await supabase.rpc('generate_term_classes', { p_term_id: termId })
@@ -58,7 +114,13 @@ export async function updateTerm(
   revalidatePath('/terms')
   revalidatePath(`/terms/${termId}`)
   revalidatePath('/calendar')
-  return success('Term saved.')
+  revalidatePath('/dashboard')
+
+  return success(
+    moved > 0
+      ? `Term saved. ${moved} ${moved === 1 ? 'class was' : 'classes were'} moved to the new slot.`
+      : 'Term saved.',
+  )
 }
 
 export async function setTermStatus(

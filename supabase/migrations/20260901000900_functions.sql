@@ -77,9 +77,10 @@ security invoker
 set search_path = public, extensions
 as $$
 begin
-  insert into public.class_students (owner_id, class_id, student_id, attendance_status)
+  insert into public.class_students (owner_id, class_id, student_id, attendance_status, added_via)
   select c.owner_id, c.id, ts.student_id,
-         case when p.default_attendance_present then 'present' else 'unmarked' end
+         case when p.default_attendance_present then 'present' else 'unmarked' end,
+         'term'
   from public.classes c
   join public.term_students ts on ts.term_id = c.term_id and ts.status = 'enrolled'
   join public.profiles p on p.id = c.owner_id
@@ -88,11 +89,16 @@ begin
   on conflict (class_id, student_id) do nothing;
 
   -- Withdrawn students drop off classes they never actually attended.
+  --
+  -- Scoped to added_via = 'term': a drop-in added to a single class is not
+  -- managed by enrolment, and deleting it here would silently lose the
+  -- instructor's deliberate action the next time anyone joins or leaves.
   delete from public.class_students cs
   using public.classes c
   where cs.class_id = c.id
     and c.term_id = p_term_id
     and c.status <> 'completed'
+    and cs.added_via = 'term'
     and cs.attendance_status = 'unmarked'
     and not exists (
       select 1 from public.term_students ts
@@ -165,18 +171,28 @@ begin
       and (p_sections is null or section = any (p_sections));
   end if;
 
+  -- Positions continue after whatever is already in each target section, so a
+  -- copy onto a non-empty plan appends in order instead of colliding with it.
+  -- The lateral sees the pre-statement snapshot, which is what makes the
+  -- row_number() offset correct for every row in one insert.
   insert into public.lesson_items (
     owner_id, lesson_id, section, position, trick_id, exercise_id,
     free_text, sets, reps, duration_seconds, tempo, notes
   )
   select l.owner_id, p_target_lesson_id, i.section,
-         i.position, i.trick_id, i.exercise_id,
+         existing.next_position
+           + (row_number() over (partition by i.section order by i.position, i.id))::int - 1,
+         i.trick_id, i.exercise_id,
          i.free_text, i.sets, i.reps, i.duration_seconds, i.tempo, i.notes
   from public.lesson_items i
   join public.class_lessons l on l.id = p_target_lesson_id
+  cross join lateral (
+    select coalesce(max(t.position) + 1, 0) as next_position
+    from public.lesson_items t
+    where t.lesson_id = p_target_lesson_id and t.section = i.section
+  ) existing
   where i.lesson_id = p_source_lesson_id
-    and (p_sections is null or i.section = any (p_sections))
-  order by i.section, i.position;
+    and (p_sections is null or i.section = any (p_sections));
 
   get diagnostics v_count = row_count;
   return v_count;
@@ -203,18 +219,25 @@ begin
       and (p_sections is null or section = any (p_sections));
   end if;
 
+  -- Same append rule as copy_lesson_items above.
   insert into public.lesson_items (
     owner_id, lesson_id, section, position, trick_id, exercise_id,
     free_text, sets, reps, duration_seconds, tempo, notes
   )
   select l.owner_id, p_target_lesson_id, i.section,
-         i.position, i.trick_id, i.exercise_id,
+         existing.next_position
+           + (row_number() over (partition by i.section order by i.position, i.id))::int - 1,
+         i.trick_id, i.exercise_id,
          i.free_text, i.sets, i.reps, i.duration_seconds, i.tempo, i.notes
   from public.lesson_template_items i
   join public.class_lessons l on l.id = p_target_lesson_id
+  cross join lateral (
+    select coalesce(max(t.position) + 1, 0) as next_position
+    from public.lesson_items t
+    where t.lesson_id = p_target_lesson_id and t.section = i.section
+  ) existing
   where i.template_id = p_template_id
-    and (p_sections is null or i.section = any (p_sections))
-  order by i.section, i.position;
+    and (p_sections is null or i.section = any (p_sections));
 
   get diagnostics v_count = row_count;
   return v_count;

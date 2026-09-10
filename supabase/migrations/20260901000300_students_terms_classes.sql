@@ -149,6 +149,11 @@ create table public.class_students (
   attendance_status    text not null default 'unmarked'
                          check (attendance_status in
                            ('unmarked', 'present', 'absent', 'late', 'excused')),
+  -- Where this roster row came from. Rows created by term enrolment are
+  -- managed by sync_term_roster; a drop-in added to a single class is not, and
+  -- must survive later enrolment changes in that term.
+  added_via            text not null default 'manual'
+                         check (added_via in ('term', 'manual')),
   attendance_marked_at timestamptz,
   performance_notes    text,
   achievements         text,
@@ -196,7 +201,7 @@ create view public.attendance
 
 create view public.student_class_records
   with (security_invoker = true) as
-  select id, owner_id, class_id, student_id, attendance_status,
+  select id, owner_id, class_id, student_id, attendance_status, added_via,
          performance_notes, achievements, difficulties, homework,
          instructor_notes, created_at, updated_at
   from public.class_students;
