@@ -95,7 +95,9 @@ export async function getStudentProfile(studentId: string) {
 
     supabase
       .from('media')
-      .select('id, file_type, caption, created_at, class_id, trick_id, tricks ( id, name )')
+      .select(
+        'id, file_type, caption, created_at, class_id, trick_id, tricks ( id, name ), classes ( id, scheduled_date )',
+      )
       .eq('student_id', studentId)
       .order('created_at', { ascending: false })
       .limit(60),
@@ -161,6 +163,7 @@ export async function getStudentProfile(studentId: string) {
       class_id: string | null
       trick_id: string | null
       tricks: { id: string; name: string } | null
+      classes: { id: string; scheduled_date: string } | null
     }[],
   }
 }

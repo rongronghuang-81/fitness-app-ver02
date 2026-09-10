@@ -1,11 +1,12 @@
 'use client'
 
 import * as React from 'react'
-import { CheckCheck } from 'lucide-react'
-import { markAllPresent, setAttendance } from '@/actions/classes'
+import { CheckCheck, UserPlus } from 'lucide-react'
+import { addStudentToClass, markAllPresent, setAttendance } from '@/actions/classes'
 import { ATTENDANCE_OPTIONS } from '@/lib/domain/attendance'
 import { studentName } from '@/lib/domain/format'
 import { Button } from '@/components/ui/button'
+import { Sheet } from '@/components/ui/sheet'
 import { useToast } from '@/components/ui/toast'
 import { toToast } from '@/lib/action-result'
 import type { AttendanceStatus } from '@/types/database'
@@ -29,13 +30,25 @@ const TONE_CLASSES: Record<string, string> = {
 export function AttendanceStrip({
   classId,
   roster,
+  allStudents = [],
 }: {
   classId: string
   roster: ClassRoster[]
+  /** Active students, so a drop-in can be added to just this class. */
+  allStudents?: {
+    id: string
+    first_name: string
+    last_name: string | null
+    preferred_name: string | null
+  }[]
 }) {
   const { notify } = useToast()
   const [optimistic, setOptimistic] = React.useState<Record<string, AttendanceStatus>>({})
+  const [addOpen, setAddOpen] = React.useState(false)
   const [, startTransition] = React.useTransition()
+
+  const onRoster = new Set(roster.map((r) => r.student_id))
+  const available = allStudents.filter((s) => !onRoster.has(s.id))
 
   const statusOf = (row: ClassRoster) => optimistic[row.id] ?? row.attendance_status
   const unmarked = roster.filter((r) => statusOf(r) === 'unmarked').length
@@ -68,22 +81,68 @@ export function AttendanceStrip({
     })
   }
 
+  const addButton =
+    available.length > 0 ? (
+      <Button variant="ghost" size="sm" onClick={() => setAddOpen(true)}>
+        <UserPlus className="size-4" />
+        Add someone
+      </Button>
+    ) : null
+
+  const addSheet = (
+    <Sheet
+      open={addOpen}
+      onOpenChange={setAddOpen}
+      title="Add a student to this class"
+      description="A one-off addition — it does not enrol them for the whole term."
+    >
+      <ul className="space-y-1">
+        {available.map((student) => (
+          <li key={student.id}>
+            <button
+              type="button"
+              onClick={() =>
+                startTransition(async () => {
+                  const result = await addStudentToClass(classId, student.id)
+                  const toast = toToast(result)
+                  if (toast) notify(toast.message, toast.tone)
+                  setAddOpen(false)
+                })
+              }
+              className="tap flex w-full items-center rounded-xl px-3 text-left text-sm font-medium hover:bg-[var(--surface-muted)]"
+            >
+              {studentName(student)}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Sheet>
+  )
+
   if (roster.length === 0) {
     return (
-      <p className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-muted">
-        Nobody is on this class yet. Enrol students on the term, or add someone to just this class.
-      </p>
+      <div className="space-y-3">
+        <p className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-muted">
+          Nobody is on this class yet. Enrol students on the term, or add someone to just this
+          class.
+        </p>
+        {addButton}
+        {addSheet}
+      </div>
     )
   }
 
   return (
     <div className="space-y-3">
-      {unmarked > 1 ? (
-        <Button variant="secondary" size="sm" onClick={markEveryone}>
-          <CheckCheck className="size-4" />
-          Mark all present
-        </Button>
-      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {unmarked > 1 ? (
+          <Button variant="secondary" size="sm" onClick={markEveryone}>
+            <CheckCheck className="size-4" />
+            Mark all present
+          </Button>
+        ) : null}
+        {addButton}
+      </div>
 
       <ul className="space-y-2">
         {roster.map((row) => {
@@ -126,6 +185,8 @@ export function AttendanceStrip({
           )
         })}
       </ul>
+
+      {addSheet}
     </div>
   )
 }

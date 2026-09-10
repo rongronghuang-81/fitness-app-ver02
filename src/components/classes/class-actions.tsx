@@ -6,6 +6,7 @@ import { applyTemplate, copyLesson } from '@/actions/classes'
 import { setClassStatus } from '@/actions/terms'
 import { createTemplateFromLesson } from '@/actions/library'
 import { CompleteClassFlow } from './complete-class-flow'
+import { ClassEditSheet } from './class-edit-sheet'
 import { Sheet, ConfirmDialog } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { CheckboxRow, Field, Input } from '@/components/ui/field'
@@ -27,9 +28,17 @@ export function ClassActions({
   templates,
   previous,
   generalNotes,
+  scheduledDate,
+  startTime,
+  durationMinutes,
+  theme,
 }: {
   classId: string
   status: string
+  scheduledDate: string
+  startTime: string
+  durationMinutes: number
+  theme: string | null
   roster: ClassRoster[]
   plannedItems: LessonItem[]
   actualItems: LessonItem[]
@@ -75,6 +84,16 @@ export function ClassActions({
             Complete class
           </Button>
         ) : null}
+
+        <ClassEditSheet
+          classId={classId}
+          scheduledDate={scheduledDate}
+          startTime={startTime}
+          durationMinutes={durationMinutes}
+          status={status}
+          theme={theme}
+          generalNotes={generalNotes}
+        />
 
         {previous ? (
           <Button variant="secondary" onClick={() => setCopyOpen(true)}>

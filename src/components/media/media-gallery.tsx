@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Film, ImageIcon, Trash2 } from 'lucide-react'
 import { getSignedMediaUrls, deleteMedia } from '@/actions/media'
 import { Sheet, ConfirmDialog } from '@/components/ui/sheet'
-import { Select } from '@/components/ui/field'
+import { Input, Select } from '@/components/ui/field'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Spinner } from '@/components/ui/button'
 import { useToast } from '@/components/ui/toast'
@@ -19,6 +19,8 @@ export interface GalleryItem {
   class_id: string | null
   trick_id: string | null
   tricks: { id: string; name: string } | null
+  /** Present when the gallery spans several classes, so they can be told apart. */
+  classes?: { id: string; scheduled_date: string } | null
 }
 
 /**
@@ -38,10 +40,21 @@ export function MediaGallery({ items }: { items: GalleryItem[] }) {
 
   const [typeFilter, setTypeFilter] = React.useState<'all' | 'photo' | 'video'>('all')
   const [trickFilter, setTrickFilter] = React.useState('')
+  const [classFilter, setClassFilter] = React.useState('')
+  const [from, setFrom] = React.useState('')
+  const [to, setTo] = React.useState('')
 
   const tricks = React.useMemo(() => {
     const map = new Map<string, string>()
     for (const item of items) if (item.tricks) map.set(item.tricks.id, item.tricks.name)
+    return [...map.entries()]
+  }, [items])
+
+  const classes = React.useMemo(() => {
+    const map = new Map<string, string>()
+    for (const item of items) {
+      if (item.classes) map.set(item.classes.id, formatDateShort(item.classes.scheduled_date))
+    }
     return [...map.entries()]
   }, [items])
 
@@ -50,10 +63,17 @@ export function MediaGallery({ items }: { items: GalleryItem[] }) {
       items.filter((item) => {
         if (typeFilter !== 'all' && item.file_type !== typeFilter) return false
         if (trickFilter && item.trick_id !== trickFilter) return false
+        if (classFilter && item.class_id !== classFilter) return false
+        // created_at is a timestamp; compare on the date part only.
+        const day = item.created_at.slice(0, 10)
+        if (from && day < from) return false
+        if (to && day > to) return false
         return true
       }),
-    [items, typeFilter, trickFilter],
+    [items, typeFilter, trickFilter, classFilter, from, to],
   )
+
+  const hasFilters = Boolean(typeFilter !== 'all' || trickFilter || classFilter || from || to)
 
   React.useEffect(() => {
     // `loading` already initialises to false when there is nothing to fetch,
@@ -95,23 +115,22 @@ export function MediaGallery({ items }: { items: GalleryItem[] }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
           aria-label="Filter by media type"
-          className="flex-1 sm:w-40"
         >
           <option value="all">All media</option>
           <option value="photo">Photos</option>
           <option value="video">Videos</option>
         </Select>
+
         {tricks.length > 0 ? (
           <Select
             value={trickFilter}
             onChange={(e) => setTrickFilter(e.target.value)}
             aria-label="Filter by trick"
-            className="flex-1 sm:w-48"
           >
             <option value="">All tricks</option>
             {tricks.map(([id, name]) => (
@@ -121,6 +140,24 @@ export function MediaGallery({ items }: { items: GalleryItem[] }) {
             ))}
           </Select>
         ) : null}
+
+        {classes.length > 1 ? (
+          <Select
+            value={classFilter}
+            onChange={(e) => setClassFilter(e.target.value)}
+            aria-label="Filter by class"
+          >
+            <option value="">All classes</option>
+            {classes.map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </Select>
+        ) : null}
+
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="From date" />
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="To date" />
       </div>
 
       {loading ? (
@@ -128,7 +165,24 @@ export function MediaGallery({ items }: { items: GalleryItem[] }) {
           <Spinner /> Loading media…
         </p>
       ) : filtered.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted">Nothing matches those filters.</p>
+        <div className="py-6 text-center">
+          <p className="text-sm text-muted">Nothing matches those filters.</p>
+          {hasFilters ? (
+            <button
+              type="button"
+              onClick={() => {
+                setTypeFilter('all')
+                setTrickFilter('')
+                setClassFilter('')
+                setFrom('')
+                setTo('')
+              }}
+              className="mt-2 text-sm font-medium text-[var(--accent)] hover:underline"
+            >
+              Clear filters
+            </button>
+          ) : null}
+        </div>
       ) : (
         <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {filtered.map((item) => {

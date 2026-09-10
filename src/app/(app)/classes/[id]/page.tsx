@@ -41,7 +41,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
   if (!detail) notFound()
 
   const supabase = await createClient()
-  const [library, previous, { data: classMedia }] = await Promise.all([
+  const [library, previous, { data: classMedia }, { data: allStudents }] = await Promise.all([
     getLibraryOptions(),
     getPreviousClassLesson(detail.classRow.term_id, detail.classRow.week_number),
     supabase
@@ -49,6 +49,11 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
       .select('id, file_type, caption, created_at, class_id, trick_id, tricks ( id, name )')
       .eq('class_id', id)
       .order('created_at', { ascending: false }),
+    supabase
+      .from('students')
+      .select('id, first_name, last_name, preferred_name')
+      .eq('active', true)
+      .order('first_name'),
   ])
 
   const trickNames = new Map(library.tricks.map((t) => [t.id, t.name] as const))
@@ -92,6 +97,10 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
           templates={library.templates}
           previous={previous}
           generalNotes={detail.classRow.general_notes}
+          scheduledDate={detail.classRow.scheduled_date}
+          startTime={detail.classRow.start_time}
+          durationMinutes={detail.classRow.duration_minutes}
+          theme={detail.classRow.theme}
         />
       </div>
 
@@ -105,7 +114,11 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
         </TabsList>
 
         <TabsContent value="attendance">
-          <AttendanceStrip classId={id} roster={detail.roster} />
+          <AttendanceStrip
+            classId={id}
+            roster={detail.roster}
+            allStudents={allStudents ?? []}
+          />
         </TabsContent>
 
         <TabsContent value="plan">
