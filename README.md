@@ -323,17 +323,29 @@ All of this is tested — see below.
 ## Testing
 
 ```bash
-npm test              # unit + component tests (99 tests, no setup needed)
+npm test              # unit + component tests (128 tests, no setup needed)
 npm run test:sql      # migrations + RLS + workflow against real PostgreSQL
 npm run typecheck     # strict TypeScript, including database-type guards
 npm run lint
 ```
 
 **`npm test`** covers weekly date generation (including the worked example from
-the brief, leap days and year boundaries), attendance maths, planned-vs-actual
-diffing, skill-status handling, CSV escaping, validation schemas, and component
-behaviour — form accessibility, empty states, the mobile bottom bar, and
-one-tap attendance.
+the brief, leap days and year boundaries), term rescheduling, attendance maths,
+planned-vs-actual diffing, skill-status handling, CSV escaping, redirect safety,
+validation schemas, and component behaviour — form accessibility, empty states,
+the mobile bottom bar, and one-tap attendance.
+
+It also asserts **WCAG AA contrast straight from the design tokens** in
+`src/app/globals.css`, in both themes: body, muted and subtle text on every
+surface; each status colour on its own soft fill and on plain surfaces; the
+accent and the primary button label; and a 3:1 focus ring. Badge text is 12px,
+so the 4.5:1 normal-text threshold applies rather than 3:1. This matters
+because the browser audit below can only reach the screens that render without
+a backend — status badges live behind authentication.
+
+**`npm run test:a11y`** runs axe-core against a running build (sign-in flow and
+the offline page) across phone and desktop widths in light and dark. Start the
+app first, then point `BASE` at it. CI does both automatically.
 
 **`npm run test:sql`** spins up a throwaway PostgreSQL database, applies a small
 Supabase shim plus every migration, and runs 63 assertions:

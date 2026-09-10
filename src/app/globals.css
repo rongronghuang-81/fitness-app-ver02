@@ -53,20 +53,23 @@
   --border-strong: var(--color-sand-300);
   --text: var(--color-sand-900);
   --text-muted: var(--color-sand-600);
-  --text-subtle: var(--color-sand-500);
+  /* Not sand-500: that measures 4.33:1 on the page background, just under AA. */
+  --text-subtle: oklch(0.53 0.012 62);
   --accent: var(--color-plum-600);
   --accent-hover: var(--color-plum-700);
   --accent-soft: var(--color-plum-50);
   --accent-text: #fff;
   --ring: var(--color-plum-500);
 
-  --positive: oklch(0.52 0.13 155);
+  /* Foregrounds solved for >= 4.6:1 on their own soft fill and on every
+     surface, since these also appear as inline text and icons. */
+  --positive: oklch(0.515 0.13 155);
   --positive-soft: oklch(0.95 0.03 155);
-  --warning: oklch(0.62 0.14 70);
+  --warning: oklch(0.54 0.14 70);
   --warning-soft: oklch(0.96 0.04 80);
-  --negative: oklch(0.56 0.17 25);
+  --negative: oklch(0.55 0.17 25);
   --negative-soft: oklch(0.96 0.03 25);
-  --info: oklch(0.55 0.11 240);
+  --info: oklch(0.53 0.11 240);
   --info-soft: oklch(0.96 0.025 240);
 
   color-scheme: light;
