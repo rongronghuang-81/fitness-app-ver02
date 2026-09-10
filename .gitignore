@@ -1,0 +1,27 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Environment — never commit real credentials
+.env
+.env.local
+.env*.local
+.env.production
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+.supabase/
+
+.DS_Store
+*.log
+npm-debug.log*
+.vercel
+.idea/
+.vscode/*
+!.vscode/extensions.json

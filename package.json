@@ -1,0 +1,56 @@
+{
+  "name": "pole-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private teaching management app for a freelance pole fitness instructor",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:sql": "bash tests/sql/run.sh",
+    "db:reset": "supabase db reset",
+    "db:push": "supabase db push",
+    "seed:demo": "tsx scripts/seed-demo.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
+    "clsx": "2.1.1",
+    "date-fns": "4.4.0",
+    "date-fns-tz": "3.2.0",
+    "lucide-react": "1.43.0",
+    "next": "16.3.4",
+    "radix-ui": "1.6.7",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwind-merge": "3.6.0",
+    "zod": "4.6.1"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "@tailwindcss/postcss": "4.3.3",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/react": "16.3.3",
+    "@types/node": "22.20.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "dotenv": "17.4.2",
+    "eslint": "10.10.0",
+    "eslint-config-next": "16.3.4",
+    "jsdom": "30.0.1",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "vitest": "5.0.0"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}
