@@ -52,9 +52,19 @@ export async function recordMedia(input: {
   milestone_id?: string | null
   caption?: string | null
 }): Promise<ActionState> {
-  await requireUser()
+  const user = await requireUser()
   const parsed = mediaMetadataSchema.safeParse(input)
   if (!parsed.success) return fieldErrors(parsed.error)
+
+  // Storage policies already refuse to read or sign an object outside the
+  // caller's own prefix, but a row pointing somewhere else should never be
+  // written in the first place — a metadata row is a claim about ownership.
+  if (!parsed.data.storage_path.startsWith(`${user.id}/`)) {
+    return failure('That upload path is not valid for this account.')
+  }
+  if (parsed.data.thumbnail_path && !parsed.data.thumbnail_path.startsWith(`${user.id}/`)) {
+    return failure('That thumbnail path is not valid for this account.')
+  }
 
   const supabase = await createClient()
   const { data, error } = await supabase.from('media').insert(parsed.data).select('id').single()

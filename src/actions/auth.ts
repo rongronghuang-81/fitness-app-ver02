@@ -5,14 +5,9 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { publicEnv } from '@/lib/env'
 import { loginSchema, newPasswordSchema, resetRequestSchema } from '@/lib/validation/schemas'
+import { safeRelativePath } from '@/lib/redirect'
 import type { ActionState } from '@/actions/types'
 import { fieldErrors, failure } from '@/actions/types'
-
-/** Only allow same-origin relative paths, so `?next=` cannot become an open redirect. */
-function safeNext(next: FormDataEntryValue | null): string {
-  const value = typeof next === 'string' ? next : ''
-  return value.startsWith('/') && !value.startsWith('//') ? value : '/dashboard'
-}
 
 export async function signIn(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const parsed = loginSchema.safeParse({
@@ -30,7 +25,7 @@ export async function signIn(_prev: ActionState, formData: FormData): Promise<Ac
   }
 
   revalidatePath('/', 'layout')
-  redirect(safeNext(formData.get('next')))
+  redirect(safeRelativePath(formData.get('next')))
 }
 
 export async function signOut(): Promise<void> {

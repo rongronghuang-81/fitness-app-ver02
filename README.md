@@ -311,7 +311,10 @@ database, not the UI.
   form already checked.
 - Login and password-reset responses are deliberately vague, so neither
   enumerates which email addresses have accounts.
-- `?next=` and auth-callback redirects accept same-origin relative paths only.
+- `?next=` and auth-callback redirects accept same-origin relative paths only,
+  rejecting protocol-relative forms (`//host`, `/\host`) and smuggled schemes.
+- A media metadata row can only claim a storage path under the caller's own
+  prefix, so a forged path is refused at write time as well as at read time.
 
 All of this is tested — see below.
 
@@ -320,7 +323,7 @@ All of this is tested — see below.
 ## Testing
 
 ```bash
-npm test              # unit + component tests (92 tests, no setup needed)
+npm test              # unit + component tests (99 tests, no setup needed)
 npm run test:sql      # migrations + RLS + workflow against real PostgreSQL
 npm run typecheck     # strict TypeScript, including database-type guards
 npm run lint
@@ -333,7 +336,7 @@ behaviour — form accessibility, empty states, the mobile bottom bar, and
 one-tap attendance.
 
 **`npm run test:sql`** spins up a throwaway PostgreSQL database, applies a small
-Supabase shim plus every migration, and runs 59 assertions:
+Supabase shim plus every migration, and runs 63 assertions:
 
 - cross-instructor isolation on select, insert, update and delete
 - anonymous access denied on tables and on private storage objects
