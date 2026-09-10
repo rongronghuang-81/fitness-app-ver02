@@ -358,6 +358,11 @@ Supabase shim plus every migration, and runs 63 assertions:
 It needs PostgreSQL 15+ server binaries (`apt install postgresql-16`, or the
 Supabase CLI's bundled Postgres) but **no credentials and no Docker**.
 
+**CI.** `.github/workflows/ci.yml` runs typecheck, lint, the unit tests, the SQL
+suites (against a PostgreSQL service container) and a production build on every
+push and pull request. No credentials are involved — the SQL suites use a
+throwaway database and the build uses placeholder public values.
+
 **`npm run test:integration`** runs the same security guarantees against a live
 Supabase project. It is skipped unless `TEST_SUPABASE_URL`,
 `TEST_SUPABASE_ANON_KEY` and `TEST_SUPABASE_SERVICE_ROLE_KEY` are set. Point
