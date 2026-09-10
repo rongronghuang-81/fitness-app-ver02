@@ -1,7 +1,11 @@
 /**
- * Environment access. Public values are read through `process.env.NEXT_PUBLIC_*`
- * literals so Next.js can inline them at build time; server-only secrets are
- * read lazily and never referenced from a client component.
+ * Environment access.
+ *
+ * The `NEXT_PUBLIC_*` references are written as literal property accesses so
+ * Next.js can inline them into the browser bundle. They are read through lazy
+ * getters rather than at module load, so a missing variable fails where it is
+ * actually used — a build must not crash just because an unrelated page
+ * imported this file.
  */
 
 function required(value: string | undefined, name: string): string {
@@ -14,12 +18,15 @@ function required(value: string | undefined, name: string): string {
 }
 
 export const publicEnv = {
-  supabaseUrl: required(process.env.NEXT_PUBLIC_SUPABASE_URL, 'NEXT_PUBLIC_SUPABASE_URL'),
-  supabaseAnonKey: required(
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  ),
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
+  get supabaseUrl() {
+    return required(process.env.NEXT_PUBLIC_SUPABASE_URL, 'NEXT_PUBLIC_SUPABASE_URL')
+  },
+  get supabaseAnonKey() {
+    return required(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, 'NEXT_PUBLIC_SUPABASE_ANON_KEY')
+  },
+  get siteUrl() {
+    return process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+  },
 } as const
 
 /** Server-only. Throws if reached from the browser bundle. */
