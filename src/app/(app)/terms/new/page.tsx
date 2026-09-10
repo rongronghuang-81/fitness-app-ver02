@@ -1,21 +1,18 @@
 import type { Metadata } from 'next'
 import { createClient, requireUser } from '@/lib/supabase/server'
+import { getProfile } from '@/lib/queries/profile'
 import { TermForm } from '@/components/terms/term-form'
 import { PageHeader } from '@/components/ui/page'
 
 export const metadata: Metadata = { title: 'New term' }
 
 export default async function NewTermPage() {
-  const user = await requireUser()
+  await requireUser()
   const supabase = await createClient()
 
-  const [{ data: levels }, { data: profile }] = await Promise.all([
+  const [{ data: levels }, profile] = await Promise.all([
     supabase.from('levels').select('id, name').eq('active', true).order('sort_order'),
-    supabase
-      .from('profiles')
-      .select('default_class_duration_minutes, default_term_weeks, default_start_time')
-      .eq('id', user.id)
-      .maybeSingle(),
+    getProfile(),
   ])
 
   return (

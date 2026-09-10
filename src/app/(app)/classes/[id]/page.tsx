@@ -62,7 +62,7 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
     .map((r) => r.students)
     .filter((s): s is NonNullable<typeof s> => s !== null)
 
-  const isLocked = detail.classRow.status === 'cancelled'
+  const isCancelled = detail.classRow.status === 'cancelled'
 
   return (
     <>
@@ -128,7 +128,12 @@ export default async function ClassPage({ params }: { params: Promise<{ id: stri
             lesson={detail.planned}
             tricks={library.tricks}
             exercises={library.exercises}
-            {...(isLocked ? { readOnlyNotice: 'This class is cancelled. Restore it to make changes.' } : {})}
+            {...(isCancelled
+              ? {
+                  readOnlyNotice:
+                    'This class is cancelled. Its plan is kept as it is — restore the class to teach it.',
+                }
+              : {})}
           />
         </TabsContent>
 

@@ -7,7 +7,7 @@ import { ClassCard, CLASS_STATUS_TONE, type ClassCardData } from '@/components/c
 import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Button } from '@/components/ui/button'
-import { formatDate, formatMonth, todayISO } from '@/lib/domain/format'
+import { formatDate, formatMonth } from '@/lib/domain/format'
 import { addDays, formatTime, parseISODate, toISODate } from '@/lib/domain/schedule'
 import { cn } from '@/lib/utils'
 
@@ -22,13 +22,15 @@ type View = 'agenda' | 'week' | 'month'
 export function CalendarViews({
   classes,
   initialMonth,
+  today,
 }: {
   classes: ClassCardData[]
   initialMonth: string
+  /** Resolved on the server in the instructor's timezone, not the browser's. */
+  today: string
 }) {
   const [view, setView] = React.useState<View>('agenda')
   const [anchor, setAnchor] = React.useState(initialMonth)
-  const today = todayISO()
 
   const byDate = React.useMemo(() => {
     const map = new Map<string, ClassCardData[]>()

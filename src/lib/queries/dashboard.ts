@@ -1,7 +1,7 @@
 import 'server-only'
 
 import { createClient } from '@/lib/supabase/server'
-import { todayISO } from '@/lib/domain/format'
+import { getToday } from '@/lib/queries/profile'
 
 /**
  * Everything the dashboard needs, in a handful of narrow queries.
@@ -64,7 +64,7 @@ function shapeClass(row: ClassQueryRow): DashboardClass {
 
 export async function getDashboardData() {
   const supabase = await createClient()
-  const today = todayISO()
+  const today = await getToday()
 
   const [todayClasses, upcoming, needsCompleting, recentMilestones, counts] = await Promise.all([
     supabase

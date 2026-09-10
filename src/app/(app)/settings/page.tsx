@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createClient, requireUser } from '@/lib/supabase/server'
+import { getProfile } from '@/lib/queries/profile'
 import { PageHeader } from '@/components/ui/page'
 import { ProfileForm } from '@/components/settings/profile-form'
 import { TaxonomyEditor } from '@/components/settings/taxonomy-editor'
@@ -10,11 +11,11 @@ import type { Profile } from '@/types/database'
 export const metadata: Metadata = { title: 'Settings' }
 
 export default async function SettingsPage() {
-  const user = await requireUser()
+  await requireUser()
   const supabase = await createClient()
 
-  const [{ data: profile }, { data: levels }, { data: categories }] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+  const [profile, { data: levels }, { data: categories }] = await Promise.all([
+    getProfile(),
     supabase.from('levels').select('id, name, sort_order').eq('active', true).order('sort_order'),
     supabase
       .from('categories')

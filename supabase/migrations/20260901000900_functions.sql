@@ -262,7 +262,15 @@ stable
 security invoker
 set search_path = public, extensions
 as $$
-  with q as (select trim(p_query) as term)
+  -- `%` and `_` are ILIKE wildcards, so a search for them (or for a name that
+  -- contains one) would otherwise match everything. Escape them once here and
+  -- match against the prepared pattern; similarity() keeps the raw term.
+  with q as (
+    select
+      trim(p_query) as term,
+      '%' || replace(replace(replace(trim(p_query), '\', '\\'), '%', '\%'), '_', '\_') || '%'
+        as pattern
+  )
   (
     select 'student'::text,
            s.id,
@@ -274,8 +282,8 @@ as $$
     cross join q
     left join public.levels l on l.id = s.current_level_id
     where public.student_display_name(s.preferred_name, s.first_name, s.last_name)
-            ilike '%' || q.term || '%'
-       or s.email::text ilike '%' || q.term || '%'
+            ilike q.pattern escape '\'
+       or s.email::text ilike q.pattern escape '\'
     order by 5 desc, 3
     limit p_limit
   )
@@ -286,8 +294,8 @@ as $$
            extensions.similarity(t.name, q.term)
     from public.tricks t
     cross join q
-    where t.name ilike '%' || q.term || '%'
-       or t.description ilike '%' || q.term || '%'
+    where t.name ilike q.pattern escape '\'
+       or t.description ilike q.pattern escape '\'
     order by 5 desc, 3
     limit p_limit
   )
@@ -298,8 +306,8 @@ as $$
            extensions.similarity(e.name, q.term)
     from public.exercises e
     cross join q
-    where e.name ilike '%' || q.term || '%'
-       or e.description ilike '%' || q.term || '%'
+    where e.name ilike q.pattern escape '\'
+       or e.description ilike q.pattern escape '\'
     order by 5 desc, 3
     limit p_limit
   )
@@ -310,9 +318,9 @@ as $$
            extensions.similarity(tm.name, q.term)
     from public.terms tm
     cross join q
-    where tm.name ilike '%' || q.term || '%'
-       or tm.location ilike '%' || q.term || '%'
-       or to_char(tm.start_date, 'FMMonth YYYY') ilike '%' || q.term || '%'
+    where tm.name ilike q.pattern escape '\'
+       or tm.location ilike q.pattern escape '\'
+       or to_char(tm.start_date, 'FMMonth YYYY') ilike q.pattern escape '\'
     order by 5 desc, 3
     limit p_limit
   )
@@ -326,10 +334,10 @@ as $$
     from public.classes c
     join public.terms tm on tm.id = c.term_id
     cross join q
-    where c.theme ilike '%' || q.term || '%'
-       or tm.name ilike '%' || q.term || '%'
-       or to_char(c.scheduled_date, 'FMMonth YYYY') ilike '%' || q.term || '%'
-       or to_char(c.scheduled_date, 'FMDay') ilike '%' || q.term || '%'
+    where c.theme ilike q.pattern escape '\'
+       or tm.name ilike q.pattern escape '\'
+       or to_char(c.scheduled_date, 'FMMonth YYYY') ilike q.pattern escape '\'
+       or to_char(c.scheduled_date, 'FMDay') ilike q.pattern escape '\'
     order by 5 desc, 4 desc
     limit p_limit
   );

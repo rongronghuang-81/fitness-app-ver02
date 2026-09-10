@@ -277,6 +277,33 @@ begin
 end;
 $$;
 
+-- --- search treats LIKE wildcards as literal text ---------------------------
+-- Regression: '%' and '_' were spliced straight into the ILIKE pattern, so
+-- searching for either matched every row, and a trick whose name contains one
+-- could not be found by it.
+insert into public.tricks (name) values ('50% Split Grip');
+
+do $$
+begin
+  perform test.assert(
+    (select count(*) from public.global_search('_')) = 0,
+    'a lone underscore matches nothing rather than everything');
+
+  perform test.assert(
+    exists (select 1 from public.global_search('50%') where title = '50% Split Grip'),
+    'a name containing a percent sign is findable by it');
+
+  perform test.assert(
+    (select count(*) from public.global_search('%')
+      where kind = 'trick' and title <> '50% Split Grip') = 0,
+    'a lone percent matches only names that really contain one');
+
+  perform test.assert(
+    exists (select 1 from public.global_search('shoulder') where kind = 'trick'),
+    'ordinary partial search still works after escaping');
+end;
+$$;
+
 -- --- archiving keeps history (§43) -----------------------------------------
 update public.students set active = false where first_name = 'Sarah';
 

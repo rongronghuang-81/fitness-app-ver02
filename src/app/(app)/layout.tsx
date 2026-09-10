@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { createClient, getCurrentUser } from '@/lib/supabase/server'
+import { getCurrentUser } from '@/lib/supabase/server'
+import { getProfile } from '@/lib/queries/profile'
 import { Sidebar } from '@/components/nav/sidebar'
 import { MobileNav } from '@/components/nav/mobile-nav'
 import { GlobalSearch } from '@/components/search/global-search'
@@ -8,13 +9,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const user = await getCurrentUser()
   if (!user) redirect('/login')
 
-  const supabase = await createClient()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('full_name, email, theme')
-    .eq('id', user.id)
-    .maybeSingle()
-
+  const profile = await getProfile()
   const instructorName = profile?.full_name || profile?.email || user.email || 'Instructor'
 
   return (
