@@ -34,23 +34,23 @@ type _IndexSignature = Expect<Extends<Profile, Record<string, unknown>>>
 // symptom that actually breaks pages when the schema constraint fails.
 declare const client: SupabaseClient<Database>
 
-async function probeSelect() {
+async function _probeSelect() {
   const { data } = await client.from('students').select('first_name, active')
   return data
 }
 
-type Selected = NonNullable<Awaited<ReturnType<typeof probeSelect>>>[number]
+type Selected = NonNullable<Awaited<ReturnType<typeof _probeSelect>>>[number]
 type _SelectIsNotNever = Expect<IsNotNever<Selected>>
 type _SelectHasColumns = Expect<Extends<Selected, { first_name: string; active: boolean }>>
 
 // An embedded join must resolve to the related row, not to a SelectQueryError.
 // This is what the Relationships metadata on each table buys us.
-async function probeJoin() {
+async function _probeJoin() {
   const { data } = await client.from('terms').select('name, levels ( id, name )').maybeSingle()
   return data
 }
 
-type JoinedTerm = NonNullable<Awaited<ReturnType<typeof probeJoin>>>
+type JoinedTerm = NonNullable<Awaited<ReturnType<typeof _probeJoin>>>
 type _JoinIsNotNever = Expect<IsNotNever<JoinedTerm>>
 type _JoinResolves = Expect<
   Extends<JoinedTerm, { name: string; levels: { id: string; name: string } | null }>

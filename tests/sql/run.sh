@@ -49,15 +49,24 @@ done
 echo "→ Helpers"
 run "$ROOT/tests/sql/00_helpers.sql"
 
+# A failed assertion raises an exception, which ON_ERROR_STOP turns into a
+# non-zero exit. Capture psql's own status rather than the pipeline's, or a
+# failing suite would be reported as a pass.
 status=0
+passed=0
 for f in "$ROOT"/tests/sql/*.test.sql; do
   echo "→ $(basename "$f")"
-  if ! psql -q -v ON_ERROR_STOP=1 -d "$DB" -f "$f" 2>&1 | grep -E '^(NOTICE|ERROR|psql)' | sed 's/^NOTICE:  //'; then
-    status=1
-  fi
-  # A failed assertion raises, which ON_ERROR_STOP turns into a non-zero exit.
-  psql -q -v ON_ERROR_STOP=1 -d "$DB" -c "select 1" >/dev/null || status=1
+  # `|| rc=$?` keeps `set -e` from aborting before the failure is reported.
+  rc=0
+  out="$(psql -v ON_ERROR_STOP=1 -d "$DB" -f "$f" 2>&1)" || rc=$?
+  echo "$out" | grep -E 'ok  |ERROR|ASSERTION' | sed -E 's/^.*NOTICE:  //'
+  passed=$(( passed + $(echo "$out" | grep -c 'ok  ') ))
+  [[ $rc -eq 0 ]] || status=1
 done
 
-if [[ $status -eq 0 ]]; then echo "SQL suites passed."; else echo "SQL suites FAILED."; fi
+if [[ $status -eq 0 ]]; then
+  echo "SQL suites passed — $passed assertions."
+else
+  echo "SQL suites FAILED."
+fi
 exit $status

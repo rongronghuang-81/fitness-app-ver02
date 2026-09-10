@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { Archive, Plus } from 'lucide-react'
 import { archiveTaxonomy, saveCategory, saveLevel } from '@/actions/library'
-import { idle } from '@/actions/types'
+import { idle, type ActionState } from '@/actions/types'
 import { Sheet } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Field, Input } from '@/components/ui/field'
@@ -34,16 +34,23 @@ export function TaxonomyEditor({
   const [addOpen, setAddOpen] = React.useState(false)
   const [pending, startTransition] = React.useTransition()
 
-  const boundAction = table === 'levels' ? saveLevel.bind(null, null) : saveCategory.bind(null, null)
-  const [state, action, saving] = React.useActionState(boundAction, idle)
+  // Driving the form with a transition rather than useActionState + an effect
+  // means the toast and the sheet close in the same update as the result,
+  // instead of cascading a second render.
+  const [state, setState] = React.useState<ActionState>(idle)
+  const [saving, startSaving] = React.useTransition()
   const errors = state.status === 'error' ? state.errors : undefined
 
-  React.useEffect(() => {
-    if (state.status === 'success') {
-      notify(state.message ?? 'Saved.')
-      setAddOpen(false)
-    }
-  }, [state, notify])
+  function action(formData: FormData) {
+    startSaving(async () => {
+      const save = table === 'levels' ? saveLevel : saveCategory
+      const result = await save(null, idle, formData)
+      setState(result)
+      const toast = toToast(result)
+      if (toast) notify(toast.message, toast.tone)
+      if (result.status === 'success') setAddOpen(false)
+    })
+  }
 
   return (
     <section className="rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-card)]">

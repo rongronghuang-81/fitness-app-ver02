@@ -38,8 +38,6 @@ const db: SupabaseClient<Database> = createClient<Database>(url, serviceKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 })
 
-type Db = typeof db
-
 async function ensureInstructor(): Promise<string> {
   const { data: created, error } = await db.auth.admin.createUser({
     email,

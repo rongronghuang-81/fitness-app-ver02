@@ -33,9 +33,22 @@ export function GlobalSearch() {
   const router = useRouter()
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
-  const [results, setResults] = React.useState<SearchResult[]>([])
-  const [loading, setLoading] = React.useState(false)
+  // Results are stored with the term they answer, so "still loading" is derived
+  // rather than set — no synchronous state updates inside the effect.
+  const [answered, setAnswered] = React.useState<{ term: string; items: SearchResult[] }>({
+    term: '',
+    items: [],
+  })
   const inputRef = React.useRef<HTMLInputElement>(null)
+
+  const term = query.trim()
+  const isSearchable = term.length >= 2
+  const loading = isSearchable && answered.term !== term
+  // Memoised so the grouping below does not recompute on unrelated renders.
+  const results = React.useMemo(
+    () => (answered.term === term ? answered.items : []),
+    [answered, term],
+  )
 
   // Cmd/Ctrl-K opens search from anywhere.
   React.useEffect(() => {
@@ -50,28 +63,22 @@ export function GlobalSearch() {
   }, [])
 
   React.useEffect(() => {
-    const term = query.trim()
-    if (term.length < 2) {
-      setResults([])
-      setLoading(false)
-      return
-    }
+    if (!isSearchable) return
 
-    setLoading(true)
     let cancelled = false
     const timer = window.setTimeout(async () => {
       const supabase = createClient()
       const { data } = await supabase.rpc('global_search', { p_query: term, p_limit: 6 })
-      if (cancelled) return
-      setResults((data as SearchResult[] | null) ?? [])
-      setLoading(false)
+      // Record the term alongside its results even on failure, so a failed
+      // lookup settles into "no matches" instead of spinning forever.
+      if (!cancelled) setAnswered({ term, items: (data as SearchResult[] | null) ?? [] })
     }, 220)
 
     return () => {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [query])
+  }, [term, isSearchable])
 
   function go(result: SearchResult) {
     setOpen(false)
@@ -138,13 +145,13 @@ export function GlobalSearch() {
             <p className="flex items-center gap-2 py-6 text-sm text-muted">
               <Spinner /> Searching…
             </p>
-          ) : query.trim().length < 2 ? (
+          ) : !isSearchable ? (
             <p className="py-6 text-center text-sm text-subtle">
               Type at least two characters. Partial matches work.
             </p>
           ) : results.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted">
-              Nothing matched “{query.trim()}”.
+              Nothing matched “{term}”.
             </p>
           ) : (
             <div className="space-y-4">

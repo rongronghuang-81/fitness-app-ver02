@@ -117,9 +117,26 @@ create trigger term_students_sync_roster
   after insert or update or delete on public.term_students
   for each row execute function public.trg_sync_term_roster();
 
+-- Statement-level with a transition table: generating a term inserts every week
+-- at once, and a per-row trigger would re-sync the whole term once per class.
+create or replace function public.trg_sync_roster_for_new_classes()
+returns trigger
+language plpgsql
+as $$
+declare
+  v_term_id uuid;
+begin
+  for v_term_id in select distinct term_id from new_classes loop
+    perform public.sync_term_roster(v_term_id);
+  end loop;
+  return null;
+end;
+$$;
+
 create trigger classes_sync_roster
   after insert on public.classes
-  for each row execute function public.trg_sync_term_roster();
+  referencing new table as new_classes
+  for each statement execute function public.trg_sync_roster_for_new_classes();
 
 -- ---------------------------------------------------------------------------
 -- copy_lesson_items

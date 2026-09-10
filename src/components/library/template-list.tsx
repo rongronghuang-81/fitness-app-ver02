@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { BookOpen, Star, Trash2 } from 'lucide-react'
 import { deleteTemplate, saveTemplate, toggleFavorite } from '@/actions/library'
-import { idle } from '@/actions/types'
+import { idle, type ActionState } from '@/actions/types'
 import { Sheet, ConfirmDialog } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -35,15 +35,21 @@ export function TemplateList({
   const [confirmDelete, setConfirmDelete] = React.useState<TemplateRow | null>(null)
   const [pending, startTransition] = React.useTransition()
 
-  const [state, action, saving] = React.useActionState(saveTemplate.bind(null, null), idle)
+  // As in the taxonomy editor: a transition keeps the result, the toast and
+  // closing the sheet in one update rather than a setState inside an effect.
+  const [state, setState] = React.useState<ActionState>(idle)
+  const [saving, startSaving] = React.useTransition()
   const errors = state.status === 'error' ? state.errors : undefined
 
-  React.useEffect(() => {
-    if (state.status === 'success') {
-      notify(state.message ?? 'Template created.')
-      setCreateOpen(false)
-    }
-  }, [state, notify])
+  function action(formData: FormData) {
+    startSaving(async () => {
+      const result = await saveTemplate(null, idle, formData)
+      setState(result)
+      const toast = toToast(result, 'Template created.')
+      if (toast) notify(toast.message, toast.tone)
+      if (result.status === 'success') setCreateOpen(false)
+    })
+  }
 
   const sorted = React.useMemo(
     () =>

@@ -56,10 +56,10 @@ export function MediaGallery({ items }: { items: GalleryItem[] }) {
   )
 
   React.useEffect(() => {
-    if (items.length === 0) {
-      setLoading(false)
-      return
-    }
+    // `loading` already initialises to false when there is nothing to fetch,
+    // so there is no synchronous state update to make here.
+    if (items.length === 0) return
+
     let cancelled = false
     getSignedMediaUrls(items.map((i) => i.id))
       .then((result) => {
